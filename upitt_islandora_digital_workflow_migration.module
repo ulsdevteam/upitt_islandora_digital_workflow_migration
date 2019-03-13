@@ -82,7 +82,7 @@ function upitt_islandora_digital_workflow_migration_show_possible(array $form, a
   $links = $l = array();
   foreach ($possible_batches as $possible_batch) {
     $total_items += $possible_batch['items count'];
-    $l[] = l($possible_batch['batch_external_id'], 'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/' . $possible_batch['batch_external_id']) . ' <b>' . number_format($possible_batch['items count']) . ' items</b>';
+    $l[] = l($possible_batch['name'], 'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/' . $possible_batch['name']) . ' <b>' . number_format($possible_batch['items count']) . ' items</b>';
   }
 
   $links[] = l('All', 'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/all') . ' <b>' . number_format($total_items) . ' items</b><hr>';
@@ -92,14 +92,14 @@ function upitt_islandora_digital_workflow_migration_show_possible(array $form, a
     'include_filter' => array(
       '#type' => 'textfield',
       '#title' => 'Include Filter',
-      '#description' => t('When set, all results will match this filter in their batch_external_id value will be displayed.  <b>NOTE:</b> Using a "*" character would represent a wildcard match at that location which must be either at the beginning and/or end of filter value.'),
+      '#description' => t('When set, all results will match this filter in their batch.name value will be displayed.  <b>NOTE:</b> Using a "*" character would represent a wildcard match at that location which must be either at the beginning and/or end of filter value.'),
       '#default_value' => $include_filter,
       '#maxlength' => 50,        
     ),
     'exclude_filter' => array(
       '#type' => 'textfield',
       '#title' => 'Exclude Filter',
-      '#description' => t('When set, all results will <b>NOT match</b> the filter value in their batch_external_id.  <b>NOTE:</b> Using a "*" character would represent a wildcard match at that location which must be either at the beginning and/or end of filter value.'),
+      '#description' => t('When set, all results will <b>NOT match</b> the filter value in their batch.name.  <b>NOTE:</b> Using a "*" character would represent a wildcard match at that location which must be either at the beginning and/or end of filter value.'),
       '#default_value' => $exclude_filter,
       '#maxlength' => 50,
     ),
@@ -167,7 +167,7 @@ function upitt_islandora_digital_workflow_migration_show_possible_submit(array $
     $_SESSION['delete_existing_records'] = $delete_existing_records;
     $migrate_batches = upitt_islandora_digital_workflow_migration_get_batches($include_filter, $exclude_filter);
     foreach ($migrate_batches as $migrate_batch) {
-      upitt_islandora_digital_workflow_migration_migrate_batch($migrate_batch['batch_external_id'], $delete_existing_records);
+      upitt_islandora_digital_workflow_migration_migrate_batch($migrate_batch['name'], $delete_existing_records);
     }
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
@@ -180,39 +180,120 @@ function upitt_islandora_digital_workflow_migration_show_possible_submit(array $
  * items related to a batch and all of the transactions related to those items
  * and migrates them all.
  *
- * @param string $batch_external_id
+ * @param string $batch_name
  *   The identifier field for a batch.
  * @return boolean
  *   Whether or not the batch was able to be migrated.
  */
-function upitt_islandora_digital_workflow_migration_migrate_batch($batch_external_id) {
-  $output = '<h3>Migrating batch "' . $batch_external_id . '"</h3>';
-
-  $items = upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_external_id);
-  $items_output = array();
-  $i = 1;
-  foreach ($items as $item) {
-    $transactions = upitt_islandora_digital_workflow_migration_get_transaction_records($item['item_id']);
-    $t = 1;
-    $transactions_output = '';
-    foreach ($transactions as $transaction) {
-      $transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
-        'title' => 'Transaction [#' . $t . ']',
-        'row' => $transaction,
-        'class' => 'indent-2'));
-      $t++;
-    }
+function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name) {
+  $output = '';
+  $batch_migrated_count = $item_migrated_count = $transaction_migrated_count = 0;
+  if ($batch_name == 'all') {
+    $batch_names = upitt_islandora_digital_workflow_migration_get_batches();
+    $batch_names = array_keys($batch_names);
+  }
+  else {
+    $batch_names = array($batch_name);
+  }
+  $j = 1;
+  foreach ($batch_names as $batch_name) {
+    $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
+    $batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
+    $batch_migrated_count += upitt_islandora_digital_workflow_migration_create_batch($batch);
+    dpm($batch);
     $output .= theme('upitt_islandora_digital_workflow_record', array(
-      'title' => 'Item [#' . $i . '] "' . $item['do_id'] . '"',
-      'row' => $item,
-      'extra_content' => $transactions_output,
-      'class' => 'indent-1'));
-    $i++;
+      'title' => 'Batch [#' . $j . ']',
+      'row' => $batch,
+      'class' => 'indent-1 batch-div'));
+    $items = upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_name);
+    $items_output = array();
+    $i = 1;
+    foreach ($items as $item) {
+      $item_migrated_count += upitt_islandora_digital_workflow_migration_create_item($item);
+      $transactions = upitt_islandora_digital_workflow_migration_get_transaction_records($item['item_id']);
+      $t = 1;
+      $transactions_output = '';
+      foreach ($transactions as $transaction) {
+        $transaction_migrated_count += upitt_islandora_digital_workflow_migration_create_transaction($transaction);
+        $transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
+          'title' => 'Transaction [#' . $t . ']',
+          'row' => $transaction,
+          'class' => 'indent-2'));
+        $t++;
+      }
+      $output .= theme('upitt_islandora_digital_workflow_record', array(
+        'title' => 'Item [#' . $i . '] "' . $item['do_id'] . '"',
+        'row' => $item,
+        'extra_content' => $transactions_output,
+        'class' => 'indent-1'));
+      $i++;
+    }
+    $j++;
   }
   if ($output) {
-    drupal_set_message($output);
+    $summary = number_format($batch_migrated_count) . ' batches migrated<br>' .
+        number_format($item_migrated_count) . ' items migrated<br>' .
+        number_format($transaction_migrated_count) . ' transactions migrated<br>';
+    drupal_set_message($summary . $output);
   }
   return ($output <> '');
+}
+
+/**
+ * Will migrate the given $batch array into new islandora_digital_workflow batch record
+ *
+ * @param string $batch
+ *   The batch array.
+ * @return int
+ *   The number of new islandora_digital_workflow batch records created as a
+ * result of calling this function.
+ */
+function upitt_islandora_digital_workflow_migration_create_batch($batch) {
+  return 1;
+}
+
+/**
+ * Will migrate the given $item array into new islandora_digital_workflow
+ * batch item record.
+ *
+ * @param string $item
+ *   The item array.
+ * @return int
+ *   The number of new islandora_digital_workflow item records created as a
+ * result of calling this function.
+ */
+function upitt_islandora_digital_workflow_migration_create_item($item) {
+  return 1;
+}
+
+/**
+ * Will migrate the given $transaction array into new islandora_digital_workflow
+ * batch item transaction record.
+ *
+ * @param string $transaction
+ *   The transaction array.
+ * @return int
+ *   The number of new islandora_digital_workflow item transaction records
+ * created as a result of calling this function.
+ */
+function upitt_islandora_digital_workflow_migration_create_transaction($transaction) {
+  // can safely ignore all transactions that have one of the following description values
+  $skip_descriptions = array("make thumnail performed", "ocr performed", "problem reported", "problem resolved",
+    "unknown", "make jpg completed", "startScanFoldouts", "make DLXS textclass derivatives completed",
+    "stopScanFoldouts", "make zoomify completed", "startScanColor", "stopScanColor",
+    "stopProblem", "resetItemStatus", "make xml completed", "make macrob csv completed",
+    "make pdf completed", "presolve", "preport", "exported files from repository to problems directory",
+    "startBR", "startScanGray", "startMeta", "stopMeta", "stopBR", "stopScanGray",
+    "deliver to webserver completed", "loadRecord", "make jpg2000 completed", "reset status",
+    "prepForMetadata", "make thumbnail completed", "ingestIntoRepository", "ocr completed",
+    "prepare macrob files completed", "ocr", "delivered", "xml", "derivatives",
+    "migrated record from 1st gen workflow", "item record created", "ingest completed");
+  if ((array_search($transaction['description'], $skip_descriptions) === FALSE)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
 }
 
 /**
@@ -224,26 +305,25 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_externa
  *   Filter to be applied to the SQL to exclude matches.
  * @return array
  *   Array of batch records - each array element is an array keyed on
- * batch_external_id and contains the "items count" and the
- * batch_external_id value for that batch.
+ * batch.name and contains the "items count" and the
+ * batch.name value for that batch.
  */
 function upitt_islandora_digital_workflow_migration_get_batches($include_filter = '', $exclude_filter = '') {
-  $link = upitt_workflow_get_databaselink('mysql_new_workflow');
+  $link = upitt_workflow_get_databaselink('drlworkflow');
 
   $include_filter_like_string = str_replace("*", "%", $include_filter);
   if (strstr($include_filter, '*')) {
-    $include_filter_where_clause = ($include_filter ? "b.`batch_external_id` LIKE '" .$include_filter_like_string. "'" : '');
+    $include_filter_where_clause = ($include_filter ? "b.`name` LIKE '" .$include_filter_like_string. "'" : '');
   }
   else {
-    $include_filter_where_clause = ($include_filter ? "b.`batch_external_id` = '" .$include_filter_like_string. "'" : '');
-  }
+    $include_filter_where_clause = ($include_filter ? "b.`name` = '" .$include_filter_like_string. "'" : '');  }
 
   $exclude_filter_like_string = str_replace("*", "%", $exclude_filter);
   if (strstr($exclude_filter, '*')) {
-    $exclude_filter_where_clause = ($exclude_filter ? "b.`batch_external_id` NOT LIKE '" .$exclude_filter_like_string. "'" : '');
+    $exclude_filter_where_clause = ($exclude_filter ? "b.`name` NOT LIKE '" .$exclude_filter_like_string. "'" : '');
   }
   else {
-    $exclude_filter_where_clause = ($exclude_filter ? "b.`batch_external_id` <> '" .$exclude_filter_like_string. "'" : '');
+    $exclude_filter_where_clause = ($exclude_filter ? "b.`name` <> '" .$exclude_filter_like_string. "'" : '');
   }
   if ($include_filter || $exclude_filter) {
     $filter_where_clause = 'WHERE ';
@@ -259,13 +339,11 @@ function upitt_islandora_digital_workflow_migration_get_batches($include_filter 
     $filter_where_clause = '';
   }
 
-  $query = 'SELECT b.`batch_external_id`, ' .
-    'COUNT(bi.item_id) `items count` ' .
-    'FROM `batch` b ' .
-    'LEFT OUTER JOIN `batch_item` bi ON (bi.batch_id = b.batch_id) ' .
-    $filter_where_clause . 
-    'GROUP BY b.batch_id ' .
-    'ORDER BY b.`batch_external_id`';
+  $query = 'SELECT b.`name`, COUNT(bi.item_id) `items count` ' . 
+    'FROM `core_batch` b ' . 
+    'LEFT OUTER JOIN `core_batch_item` bi ON (bi.batch_id = b.id) ' .
+    $filter_where_clause .
+    'GROUP BY b.id ORDER BY b.`name`';
 
   $result = mysqli_query($link, $query);
   if (!$result) {
@@ -273,15 +351,41 @@ function upitt_islandora_digital_workflow_migration_get_batches($include_filter 
   }
   $rows = array();
   while ($row = mysqli_fetch_assoc($result)) {
-    $rows[$row['batch_external_id']] = $row;
+    $rows[$row['name']] = $row;
   }
   mysqli_close($link);
-
   return $rows;
 }
 
 /**
- * Form to handle a single batch_external_id - and prompt the user to migrate.
+ * Database query function to return the matching batch as an array.
+ *
+ * @param string $batch_name
+ *   The unique name of a batch record.
+ * @return array
+ *   An array of batch record field => values pairs.
+ */
+function upitt_islandora_digital_workflow_migration_get_batch($batch_name) {
+  $link = upitt_workflow_get_databaselink('drlworkflow');
+  $query = 'SELECT b.* ' .
+    'FROM `core_batch` b ' .
+    'WHERE b.`name` = "' . $batch_name . '" ' .
+    'GROUP BY b.id ORDER BY b.`name`';
+
+  $result = mysqli_query($link, $query);
+  if (!$result) {
+    upitt_workflow_sql_error_die($link, $query);
+  }
+  $rows = array();
+  while ($row = mysqli_fetch_assoc($result)) {
+    $rows = $row;
+  }
+  mysqli_close($link);
+  return $rows;
+}
+
+/**
+ * Form to handle a single batch.name - and prompt the user to migrate.
  *
  * This form is linked to by the main "possible batches" routine.... it may be
  * superflous, but provided nonetheless.
@@ -290,20 +394,21 @@ function upitt_islandora_digital_workflow_migration_get_batches($include_filter 
  *   The Drupal form definition.
  * @param array $form_state
  *   The Drupal form state.
- * @param string $batch_external_id
+ * @param string $batch_name
  *   The identifier field for a batch.
  * @return array
  *   A Drupal form definition.
  */
-function upitt_islandora_digital_workflow_migration_migrate_batches(array $form, array &$form_state, $batch_external_id = '') {
+function upitt_islandora_digital_workflow_migration_migrate_batches(array $form, array &$form_state, $batch_name = '') {
   $form = array(
     'batchname' => array(
       '#type' => 'item',
-      '#markup' => '<b>Migrate batch "' . $batch_external_id . '"?</b>',
+      '#markup' => '<b>Migrate ' .
+        (($batch_name == 'all') ? 'All Batches' : 'batch "' . $batch_name . '"') . '?</b>',
     ),
-    'batch_external_id' => array(
+    'batch_name' => array(
       '#type' => 'hidden',
-      '#default_value' => $batch_external_id,
+      '#default_value' => $batch_name,
     ),
     'delete_existing_records' => array(
       '#type' => 'checkbox',
@@ -324,7 +429,7 @@ function upitt_islandora_digital_workflow_migration_migrate_batches(array $form,
 }
 
 /**
- * Submit handler for migration prompt on a single batch_external_id.
+ * Submit handler for migration prompt on a single batch_name.
  *
  * @param array $form
  *   The Drupal form definition.
@@ -332,14 +437,14 @@ function upitt_islandora_digital_workflow_migration_migrate_batches(array $form,
  *   The Drupal form state.
  */
 function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array $form, array &$form_state) {
-  $batch_external_id = $form['batch_external_id']['#value'];
+  $batch_name = $form['batch_name']['#value'];
   // if the user cancels, send them back to the main page.
   if ($form_state['triggering_element']['#value'] == t('Cancel')) {
-    drupal_set_message('Migration cancelled for django batch "' . $batch_external_id . '".');
+    drupal_set_message('Migration cancelled for django batch "' . $batch_name . '".');
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
   $delete_existing_records = $form['delete_existing_records']['#value'];
-  if (upitt_islandora_digital_workflow_migration_migrate_batch($batch_external_id, $delete_existing_records)) {
+  if (upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $delete_existing_records)) {
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
 }
@@ -347,16 +452,16 @@ function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array
 /**
  * Database query function to return the items related to a batch.
  *
- * @param string $batch_external_id
+ * @param string $batch_name
  *   The identifier field for a batch.
  * @return array
  *   Array of batch items keyed on the item's do_id - each is an array of field
  * values.
  */
-function upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_external_id) {
-  $link = upitt_workflow_get_databaselink('mysql_new_workflow');
+function upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_name) {
+  $link = upitt_workflow_get_databaselink('drlworkflow');
 
-  $fields = array("b.`batch_external_id`", "i.`do_id`", "i.`name`",
+  $fields = array("b.`name`", "i.`do_id`", "i.`name`",
       "i.`type_id`", "i.`property_owner_id`", "i.`primary_collection_id`",
       "bi.item_id", "wflli.enumeration", "wflli.date_issued",
       "wflli.online_pub_date", "wflli.copyright_status", "wflli.publication_status",
@@ -366,13 +471,13 @@ function upitt_islandora_digital_workflow_migration_get_batch_item_records($batc
       "wflli.digitization_responsibility", "wflli.digitization_date",
       "wffc.`name` as `collection name`", "wffc.`pid`");
   $query = 'SELECT ' . implode(", ", $fields) . ' ' .
-    'FROM `batch` b ' .
-    'LEFT OUTER JOIN `batch_item` bi ON (bi.batch_id = b.batch_id) ' .
-    'LEFT OUTER JOIN `item` i ON (i.id = bi.item_id) ' .
+    'FROM `core_batch` b ' .
+    'LEFT OUTER JOIN `core_batch_item` bi ON (bi.batch_id = b.id) ' .
+    'LEFT OUTER JOIN `core_item` i ON (i.id = bi.item_id) ' .
     'LEFT OUTER JOIN wflocal_local_item wflli ON (wflli.item_ptr_id = i.id) ' .
     'LEFT OUTER JOIN wflocal_local_item_fedora_collections wflifc ON (wflifc.local_item_id = i.`primary_collection_id`) ' .
     'LEFT OUTER JOIN wflocal_fedora_collection wffc ON (wffc.`id` = wflifc.fedora_collection_id) ' .
-    'WHERE b.`batch_external_id` = "' . $batch_external_id . '"';
+    'WHERE b.`name` = "' . $batch_name . '"';
 
   $result = mysqli_query($link, $query);
   if (!$result) {
@@ -383,7 +488,6 @@ function upitt_islandora_digital_workflow_migration_get_batch_item_records($batc
     $rows[$row['do_id']] = $row;
   }
   mysqli_close($link);
-
   return $rows;
 }
 
@@ -397,15 +501,13 @@ function upitt_islandora_digital_workflow_migration_get_batch_item_records($batc
  * array of transaction field values.
  */
 function upitt_islandora_digital_workflow_migration_get_transaction_records($item_id) {
-  $link = upitt_workflow_get_databaselink('mysql_new_workflow');
+  $link = upitt_workflow_get_databaselink('drlworkflow');
 
-  $query = 'SELECT t.id, a.name, t.transaction_action_id, ta.description, ' .
-      ' lau.`username`, lau.`first_name`, lau.`last_name`, lau.`email`, t.`timestamp` ' .
-      'FROM `transaction` t ' .
-      'LEFT OUTER JOIN legacy_auth_user lau ON (lau.id = t.user_id) ' .
-      'LEFT OUTER JOIN `action` a ON (a.id = t.transaction_action_id) ' .
-      'LEFT OUTER JOIN transaction_actions ta ON (ta.id = t.transaction_action_id) ' .
-      'WHERE t.`item_id` = "' . $item_id . '"' .
+  $query = 'SELECT t.`id`, t.`item_id`, t.`description`, ' .
+      ' au.`username`, au.`first_name`, au.`last_name`, au.`email`, t.`timestamp` ' .
+      'FROM `core_transaction` t ' .
+      'LEFT OUTER JOIN auth_user au ON (au.id = t.user_id) ' .
+      'WHERE t.`item_id` = "' . $item_id . '" ' .
       'ORDER BY t.`timestamp`';
 
   $result = mysqli_query($link, $query);
@@ -417,6 +519,5 @@ function upitt_islandora_digital_workflow_migration_get_transaction_records($ite
     $rows[$row['id']] = $row;
   }
   mysqli_close($link);
-
   return $rows;
 }
