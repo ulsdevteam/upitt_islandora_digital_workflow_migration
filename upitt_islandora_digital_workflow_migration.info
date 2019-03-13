@@ -1,0 +1,9 @@
+name = University of Pittsburgh - DRL django to Islandora Digital Workflow Migration
+description = Migration records from the legacy UPitt DRL django system to the Islandora Digital Workflow system.
+package = Islandora Tools
+version = 7.x-1.6
+core = 7.x
+configure = admin/islandora/upitt_islandora_digital_workflow_migration
+dependencies[] = islandora
+dependencies[] = upitt_workflow
+

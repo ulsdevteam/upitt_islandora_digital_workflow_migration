@@ -1,0 +1,27 @@
+.indent-1 {
+    display: block;
+    margin-left: 2px;
+    margin-bottom: 1.5em;
+    border-radius: 8px;
+    padding: 8px;
+    border: 3px solid #BBB;
+    background-color: whitesmoke;
+    box-shadow: -2px -2px 8px #444;
+}
+
+.indent-2 {
+    float: left;
+    margin: 12px;
+    max-width: 28%;
+    width: 28%;
+    font-size: small;
+    border-radius: 8px;
+    padding: 8px;
+    background-color: white;
+    border: 2px solid #BBB;
+    box-shadow: 3px 3px 8px #222;
+}
+
+.clearfloat {
+    clear: both;
+}
