@@ -8,19 +8,20 @@
     padding: 8px;
     background-color: #F8F8F8;
     box-shadow: -2px -2px 8px #444;
+    font-size: 88% !important;
 }
 
 .indent-2 {
     float: left;
-    margin: 12px;
-    max-width: 28%;
-    width: 28%;
-    font-size: small;
-    border-radius: 8px;
-    padding: 8px;
+    margin: 6px;
+    max-width: 21%;
+    width: 21%;
+    border-radius: 6px;
+    padding: 4px;
     background-color: white;
     border: 1px solid #444;
     box-shadow: 3px 3px 8px #222;
+    font-size: 86% !important;
 }
 
 .batch-div {
@@ -28,6 +29,7 @@
     border-radius: 8px;
     border: 2px solid #DDD;
 }
+
 .clearfloat {
     clear: both;
 }

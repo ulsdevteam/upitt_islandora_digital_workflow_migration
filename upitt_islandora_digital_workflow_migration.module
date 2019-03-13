@@ -1,5 +1,7 @@
 <?php
 
+define('CST_TEMP_MESSAGE_FILE', '/tmp/upitt_islandora_digital_workflow_migration_message');
+
 // This module relies on some database functions that are in the code for
 // upitt_workflow.module.
 module_load_include('module', 'upitt_workflow', 'upitt_workflow');
@@ -70,6 +72,12 @@ function upitt_islandora_digital_workflow_migration_preprocess_page(&$vars) {
  *   A Drupal form definition.
  */
 function upitt_islandora_digital_workflow_migration_show_possible(array $form, array &$form_state) {
+  if (file_exists(CST_TEMP_MESSAGE_FILE)) {
+    $file_contents = file_get_contents(CST_TEMP_MESSAGE_FILE);
+    drupal_set_message($file_contents);
+    @unlink(CST_TEMP_MESSAGE_FILE);
+  }
+
   $form = array();
   $include_filter = (array_key_exists('include_filter', $_POST) ? trim($_POST['include_filter']) : @$_SESSION['include_filter']);
   $exclude_filter = (array_key_exists('exclude_filter', $_POST) ? trim($_POST['exclude_filter']) : @$_SESSION['exclude_filter']);
@@ -166,9 +174,11 @@ function upitt_islandora_digital_workflow_migration_show_possible_submit(array $
     $_SESSION['exclude_filter'] = $exclude_filter;
     $_SESSION['delete_existing_records'] = $delete_existing_records;
     $migrate_batches = upitt_islandora_digital_workflow_migration_get_batches($include_filter, $exclude_filter);
+    $output = '';
     foreach ($migrate_batches as $migrate_batch) {
-      upitt_islandora_digital_workflow_migration_migrate_batch($migrate_batch['name'], $delete_existing_records);
+      $output .= upitt_islandora_digital_workflow_migration_migrate_batch($migrate_batch['name'], $delete_existing_records);
     }
+    file_put_contents(CST_TEMP_MESSAGE_FILE, $output);
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
 
@@ -200,7 +210,6 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name) {
     $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
     $batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
     $batch_migrated_count += upitt_islandora_digital_workflow_migration_create_batch($batch);
-    dpm($batch);
     $output .= theme('upitt_islandora_digital_workflow_record', array(
       'title' => 'Batch [#' . $j . ']',
       'row' => $batch,
@@ -230,13 +239,12 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name) {
     }
     $j++;
   }
-  if ($output) {
-    $summary = number_format($batch_migrated_count) . ' batches migrated<br>' .
-        number_format($item_migrated_count) . ' items migrated<br>' .
-        number_format($transaction_migrated_count) . ' transactions migrated<br>';
-    drupal_set_message($summary . $output);
-  }
-  return ($output <> '');
+
+  $summary = ($output) ?
+    number_format($batch_migrated_count) . ' batches migrated<br>' .
+    number_format($item_migrated_count) . ' items migrated<br>' .
+    number_format($transaction_migrated_count) . ' transactions migrated<br>' : '';
+  return $summary . $output;
 }
 
 /**
@@ -343,7 +351,7 @@ function upitt_islandora_digital_workflow_migration_get_batches($include_filter 
     'FROM `core_batch` b ' . 
     'LEFT OUTER JOIN `core_batch_item` bi ON (bi.batch_id = b.id) ' .
     $filter_where_clause .
-    'GROUP BY b.id ORDER BY b.`name`';
+    ' GROUP BY b.id ORDER BY b.`name`';
 
   $result = mysqli_query($link, $query);
   if (!$result) {
@@ -369,8 +377,7 @@ function upitt_islandora_digital_workflow_migration_get_batch($batch_name) {
   $link = upitt_workflow_get_databaselink('drlworkflow');
   $query = 'SELECT b.* ' .
     'FROM `core_batch` b ' .
-    'WHERE b.`name` = "' . $batch_name . '" ' .
-    'GROUP BY b.id ORDER BY b.`name`';
+    'WHERE b.`name` = "' . $batch_name . '"';
 
   $result = mysqli_query($link, $query);
   if (!$result) {
@@ -444,7 +451,8 @@ function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
   $delete_existing_records = $form['delete_existing_records']['#value'];
-  if (upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $delete_existing_records)) {
+  if ($output = upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $delete_existing_records)) {
+    file_put_contents(CST_TEMP_MESSAGE_FILE, $output);
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
 }
