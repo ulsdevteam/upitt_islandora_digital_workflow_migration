@@ -3,25 +3,41 @@
     margin-left: 2px;
     margin-bottom: 1.5em;
     border: 2px solid #EDEDED;
-    border-right-width: 32px;
-    border-left-width: 24px;
+    border-right-width: 36px;
+    border-left-width: 30px;
     padding: 8px;
     background-color: #F8F8F8;
     box-shadow: -2px -2px 8px #444;
     font-size: 88% !important;
 }
 
+.indent-1 h3, .indent-2 h3 {
+    margin: 2px;
+}
+
+.indent-1 h3 {
+    font-size: 1.2em;
+}
+.indent-2 h3 {
+    font-size: 1.1em;
+}
+.idw h3 {
+    color: #2C4;
+}
 .indent-2 {
     float: left;
     margin: 6px;
-    max-width: 21%;
-    width: 21%;
+    max-width: 22%;
+    width: 22%;
     border-radius: 6px;
-    padding: 4px;
+    padding: 4px 7px;
     background-color: white;
     border: 1px solid #444;
     box-shadow: 3px 3px 8px #222;
-    font-size: 86% !important;
+    font-size: 80% !important;
+    clear: inline-end;
+    overflow-x: hidden;
+    white-space: nowrap;
 }
 
 .batch-div {
@@ -32,4 +48,16 @@
 
 .clearfloat {
     clear: both;
+}
+
+.skipped {
+    border-color: #F44;
+    color: #999;
+    background-color: #fafafa;
+}
+
+.idw {
+    border-color: #22D;
+    color: black;
+    background-color: white;
 }

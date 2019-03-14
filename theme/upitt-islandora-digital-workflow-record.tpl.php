@@ -1,5 +1,5 @@
 <div class="<?php print $class; ?>">
-    <b><?php print $title; ?></b><hr />
+    <h3><?php print $title; ?></h3>
 <?php foreach ($row as $key => $value): ?>
     <b><?php print $key; ?>:</b> <?php print $value; ?><br />
 <?php endforeach; ?>

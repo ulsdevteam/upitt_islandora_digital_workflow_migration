@@ -1,6 +1,74 @@
 <?php
 
+set_time_limit(0);
+
+global $drupal_uids;
+global $idw_islandora_model_mapping;
+$drupal_uids = array(
+  "abrenner@pitt.edu" =>53,
+  "akg45@pitt.edu" =>481,
+  "alexjtoner@pitt.edu" =>89110,
+  "alt64@pitt.edu" =>64816,
+  "ASW76@pitt.edu" =>88956,
+  "bdgregg@pitt.edu" =>38,
+  "btr9@pitt.edu" =>89111,
+  "CHL291@pitt.edu" =>89112,
+  "chs187@pitt.edu" =>686,
+  "ctgraham@pitt.edu" =>135,
+  "cwithers@pitt.edu" =>89113,
+  "delvon.anderson@pitt.edu" =>44,
+  "des125@pitt.edu" =>61,
+  "discovery@discoverygarden.ca" =>56,
+  "edwardg@pitt.edu" =>164,
+  "esoward@pitt.edu" =>122,
+  "grinnell@pitt.edu" =>89114,
+  "heidicard@pitt.edu" =>482,
+  "hek33@pitt.edu" =>740,
+  "HOK14@pitt.edu" =>64811,
+  "jeanann@pitt.edu" =>89115,
+  "jeffw@pitt.edu" =>134,
+  "JEK176@pitt.edu" =>64812,
+  "jmp171@pitt.edu" =>125,
+  "k.johnston@pitt.edu" =>128,
+  "KARIMAY@pitt.edu" =>88954,
+  "kiarna@pitt.edu" =>483,
+  "kmd106@pitt.edu" =>89116,
+  "kmill@pitt.edu" =>89117,
+  "kristin.britanik@pitt.edu" =>78366,
+  "laurabrooks@pitt.edu" =>239,
+  "LINDAN@pitt.edu" =>4229,
+  "lugar@pitt.edu" =>89118,
+  "mam687@pitt.edu" =>89119,
+  "miriam@pitt.edu" =>89120,
+  "mjj@pitt.edu" =>484,
+  "mpmcgill@pitt.edu" =>89121,
+  "mrbst20@pitt.edu" =>58,
+  "nwatson@pitt.edu" =>89122,
+  "rlh52@pitt.edu" =>131,
+  "STR51@pitt.edu" =>741,
+  "tarka@pitt.edu" =>485,
+  "tsd@pitt.edu" =>486,
+  "tyt3@pitt.edu" =>89249,
+  "uls-systemsdevelopment@mail.pitt.edu" =>1,
+  "uls-systemsdevelopment@pitt.edu" =>768,
+  "ulssdstu@pitt.edu" =>240,
+  "wgillingham@pitt.edu" =>235,
+  "williamdaw@pitt.edu" =>89123,
+  "zlb2@pitt.edu" =>250
+);
+$idw_islandora_model_mapping = array(
+  1 => 'manuscriptCModel',
+  2 => 'sp_large_image_cmodel',
+  3 => 'bookCModel',            // text - cataloged
+  4 => 'bookCModel',            // text - uncataloged
+  5 => 'sp_large_image_cmodel', // map
+  6 => 'sp_pdf',
+  7 => 'sp_large_image_cmodel', // georeferenced map
+  8 => 'newspaperIssueCModel',  // newspaper - cataloged
+);
+
 define('CST_TEMP_MESSAGE_FILE', '/tmp/upitt_islandora_digital_workflow_migration_message');
+define('CST_DELIVERY_ROOT', '/ingest/dlxs/repository/');
 
 // This module relies on some database functions that are in the code for
 // upitt_workflow.module.
@@ -72,6 +140,7 @@ function upitt_islandora_digital_workflow_migration_preprocess_page(&$vars) {
  *   A Drupal form definition.
  */
 function upitt_islandora_digital_workflow_migration_show_possible(array $form, array &$form_state) {
+  module_load_include('inc', 'upitt_islandora_digital_workflow_migration', 'includes/db');
   if (file_exists(CST_TEMP_MESSAGE_FILE)) {
     $file_contents = file_get_contents(CST_TEMP_MESSAGE_FILE);
     drupal_set_message($file_contents);
@@ -192,10 +261,14 @@ function upitt_islandora_digital_workflow_migration_show_possible_submit(array $
  *
  * @param string $batch_name
  *   The identifier field for a batch.
+ * @param boolean $delete_existing_records
+ *   Whether or not to delete any matching islandora_digital_workflow record
+ * before trying to insert it.
  * @return boolean
  *   Whether or not the batch was able to be migrated.
  */
-function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name) {
+function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $delete_existing_records = TRUE) {
+  module_load_include('inc', 'upitt_islandora_digital_workflow_migration', 'includes/db');
   $output = '';
   $batch_migrated_count = $item_migrated_count = $transaction_migrated_count = 0;
   if ($batch_name == 'all') {
@@ -208,34 +281,51 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name) {
   $j = 1;
   foreach ($batch_names as $batch_name) {
     $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
-    $batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
-    $batch_migrated_count += upitt_islandora_digital_workflow_migration_create_batch($batch);
+    $django_batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
+    $added_this_batch = upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records);
+    $batch_id = $added_this_batch['batch_id'];
+    $batch_migrated_count += (is_array($added_this_batch) ? 1 : 0);
     $output .= theme('upitt_islandora_digital_workflow_record', array(
       'title' => 'Batch [#' . $j . ']',
-      'row' => $batch,
+      'row' => $django_batch,
       'class' => 'indent-1 batch-div'));
     $items = upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_name);
     $items_output = array();
+    $tt = 0;
     $i = 1;
     foreach ($items as $item) {
-      $item_migrated_count += upitt_islandora_digital_workflow_migration_create_item($item);
+      $added_this_batch_item = upitt_islandora_digital_workflow_migration_create_item($item, $added_this_batch, $django_batch);
+      $item_migrated_count += (is_array($added_this_batch_item) ? 1 : 0);
       $transactions = upitt_islandora_digital_workflow_migration_get_transaction_records($item['item_id']);
-      $t = 1;
-      $transactions_output = '';
+      $t = $idw_t = 1;
+      $transactions_output = '<h3>Django Transactions</h3>';
+      $idw_transactions_output = '<hr class="clearfloat" /><h3>Islandora Digital Workflow Transactions</h3>';
       foreach ($transactions as $transaction) {
-        $transaction_migrated_count += upitt_islandora_digital_workflow_migration_create_transaction($transaction);
+        $added_this_transaction = upitt_islandora_digital_workflow_migration_create_transaction($transaction, $added_this_batch_item);
+        $transaction_migrated_count += (is_array($added_this_transaction) ? 1 : 0);
         $transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
           'title' => 'Transaction [#' . $t . ']',
           'row' => $transaction,
-          'class' => 'indent-2'));
+          'class' => 'indent-2' . (is_array($added_this_transaction) ? '' : ' skipped')));
+        if (is_array($added_this_transaction)) {
+          $idw_transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
+            'title' => 'Transaction [#' . $idw_t . ']',
+            'row' => $added_this_transaction,
+            'class' => 'indent-2 idw'
+          ));
+          $idw_t++;
+        }
+
         $t++;
       }
+
       $output .= theme('upitt_islandora_digital_workflow_record', array(
         'title' => 'Item [#' . $i . '] "' . $item['do_id'] . '"',
         'row' => $item,
-        'extra_content' => $transactions_output,
+        'extra_content' => $transactions_output . $idw_transactions_output,
         'class' => 'indent-1'));
       $i++;
+      $tt += $t;
     }
     $j++;
   }
@@ -243,152 +333,21 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name) {
   $summary = ($output) ?
     number_format($batch_migrated_count) . ' batches migrated<br>' .
     number_format($item_migrated_count) . ' items migrated<br>' .
-    number_format($transaction_migrated_count) . ' transactions migrated<br>' : '';
+    number_format($transaction_migrated_count) . ' of ' .
+    number_format($tt) . ' transactions migrated<br>' : '';
   return $summary . $output;
 }
 
-/**
- * Will migrate the given $batch array into new islandora_digital_workflow batch record
- *
- * @param string $batch
- *   The batch array.
- * @return int
- *   The number of new islandora_digital_workflow batch records created as a
- * result of calling this function.
- */
-function upitt_islandora_digital_workflow_migration_create_batch($batch) {
-  return 1;
+function upitt_islandora_digital_workflow_migration_get_islandora_model_from_type_id($type_id) {
+  global $idw_islandora_model_mapping;
+  return 'islandora:' . (!(array_key_exists($type_id, $idw_islandora_model_mapping) === FALSE)) ?
+      $idw_islandora_model_mapping[$type_id] : 'sp_large_image_cmodel';
 }
 
-/**
- * Will migrate the given $item array into new islandora_digital_workflow
- * batch item record.
- *
- * @param string $item
- *   The item array.
- * @return int
- *   The number of new islandora_digital_workflow item records created as a
- * result of calling this function.
- */
-function upitt_islandora_digital_workflow_migration_create_item($item) {
-  return 1;
-}
-
-/**
- * Will migrate the given $transaction array into new islandora_digital_workflow
- * batch item transaction record.
- *
- * @param string $transaction
- *   The transaction array.
- * @return int
- *   The number of new islandora_digital_workflow item transaction records
- * created as a result of calling this function.
- */
-function upitt_islandora_digital_workflow_migration_create_transaction($transaction) {
-  // can safely ignore all transactions that have one of the following description values
-  $skip_descriptions = array("make thumnail performed", "ocr performed", "problem reported", "problem resolved",
-    "unknown", "make jpg completed", "startScanFoldouts", "make DLXS textclass derivatives completed",
-    "stopScanFoldouts", "make zoomify completed", "startScanColor", "stopScanColor",
-    "stopProblem", "resetItemStatus", "make xml completed", "make macrob csv completed",
-    "make pdf completed", "presolve", "preport", "exported files from repository to problems directory",
-    "startBR", "startScanGray", "startMeta", "stopMeta", "stopBR", "stopScanGray",
-    "deliver to webserver completed", "loadRecord", "make jpg2000 completed", "reset status",
-    "prepForMetadata", "make thumbnail completed", "ingestIntoRepository", "ocr completed",
-    "prepare macrob files completed", "ocr", "delivered", "xml", "derivatives",
-    "migrated record from 1st gen workflow", "item record created", "ingest completed");
-  if ((array_search($transaction['description'], $skip_descriptions) === FALSE)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
-}
-
-/**
- * Helper function to create the search form filter choices for collections in workflow_django
- *
- * @param string $include_filter
- *   Filter to be applied to the SQL to include matches.
- * @param string $exclude_filter
- *   Filter to be applied to the SQL to exclude matches.
- * @return array
- *   Array of batch records - each array element is an array keyed on
- * batch.name and contains the "items count" and the
- * batch.name value for that batch.
- */
-function upitt_islandora_digital_workflow_migration_get_batches($include_filter = '', $exclude_filter = '') {
-  $link = upitt_workflow_get_databaselink('drlworkflow');
-
-  $include_filter_like_string = str_replace("*", "%", $include_filter);
-  if (strstr($include_filter, '*')) {
-    $include_filter_where_clause = ($include_filter ? "b.`name` LIKE '" .$include_filter_like_string. "'" : '');
-  }
-  else {
-    $include_filter_where_clause = ($include_filter ? "b.`name` = '" .$include_filter_like_string. "'" : '');  }
-
-  $exclude_filter_like_string = str_replace("*", "%", $exclude_filter);
-  if (strstr($exclude_filter, '*')) {
-    $exclude_filter_where_clause = ($exclude_filter ? "b.`name` NOT LIKE '" .$exclude_filter_like_string. "'" : '');
-  }
-  else {
-    $exclude_filter_where_clause = ($exclude_filter ? "b.`name` <> '" .$exclude_filter_like_string. "'" : '');
-  }
-  if ($include_filter || $exclude_filter) {
-    $filter_where_clause = 'WHERE ';
-    if ($include_filter_where_clause && $exclude_filter_where_clause) {
-      $filter_where_clause .= $include_filter_where_clause . ' AND ' . $exclude_filter_where_clause;
-    }
-    else {
-      // Get both values without checking -- it must be one clause at this point.
-      $filter_where_clause .= $include_filter_where_clause . $exclude_filter_where_clause;
-    }
-  }
-  else {
-    $filter_where_clause = '';
-  }
-
-  $query = 'SELECT b.`name`, COUNT(bi.item_id) `items count` ' . 
-    'FROM `core_batch` b ' . 
-    'LEFT OUTER JOIN `core_batch_item` bi ON (bi.batch_id = b.id) ' .
-    $filter_where_clause .
-    ' GROUP BY b.id ORDER BY b.`name`';
-
-  $result = mysqli_query($link, $query);
-  if (!$result) {
-    upitt_workflow_sql_error_die($link, $query);
-  }
-  $rows = array();
-  while ($row = mysqli_fetch_assoc($result)) {
-    $rows[$row['name']] = $row;
-  }
-  mysqli_close($link);
-  return $rows;
-}
-
-/**
- * Database query function to return the matching batch as an array.
- *
- * @param string $batch_name
- *   The unique name of a batch record.
- * @return array
- *   An array of batch record field => values pairs.
- */
-function upitt_islandora_digital_workflow_migration_get_batch($batch_name) {
-  $link = upitt_workflow_get_databaselink('drlworkflow');
-  $query = 'SELECT b.* ' .
-    'FROM `core_batch` b ' .
-    'WHERE b.`name` = "' . $batch_name . '"';
-
-  $result = mysqli_query($link, $query);
-  if (!$result) {
-    upitt_workflow_sql_error_die($link, $query);
-  }
-  $rows = array();
-  while ($row = mysqli_fetch_assoc($result)) {
-    $rows = $row;
-  }
-  mysqli_close($link);
-  return $rows;
+function upitt_islandora_digital_workflow_migration_get_drupal_uid($email) {
+  global $drupal_uids;
+  return (!(array_key_exists($email, $drupal_uids) === FALSE)) ?
+      $drupal_uids[$email] : 0;
 }
 
 /**
@@ -455,77 +414,4 @@ function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array
     file_put_contents(CST_TEMP_MESSAGE_FILE, $output);
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
-}
-
-/**
- * Database query function to return the items related to a batch.
- *
- * @param string $batch_name
- *   The identifier field for a batch.
- * @return array
- *   Array of batch items keyed on the item's do_id - each is an array of field
- * values.
- */
-function upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_name) {
-  $link = upitt_workflow_get_databaselink('drlworkflow');
-
-  $fields = array("b.`name`", "i.`do_id`", "i.`name`",
-      "i.`type_id`", "i.`property_owner_id`", "i.`primary_collection_id`",
-      "bi.item_id", "wflli.enumeration", "wflli.date_issued",
-      "wflli.online_pub_date", "wflli.copyright_status", "wflli.publication_status",
-      "wflli.copyright_holder_name", "wflli.permission_notes",
-      "wflli.voyager_id", "wflli.ead_id", "wflli.depositor",
-      "wflli.type_of_resource", "wflli.genre", "wflli.thumb_filename",
-      "wflli.digitization_responsibility", "wflli.digitization_date",
-      "wffc.`name` as `collection name`", "wffc.`pid`");
-  $query = 'SELECT ' . implode(", ", $fields) . ' ' .
-    'FROM `core_batch` b ' .
-    'LEFT OUTER JOIN `core_batch_item` bi ON (bi.batch_id = b.id) ' .
-    'LEFT OUTER JOIN `core_item` i ON (i.id = bi.item_id) ' .
-    'LEFT OUTER JOIN wflocal_local_item wflli ON (wflli.item_ptr_id = i.id) ' .
-    'LEFT OUTER JOIN wflocal_local_item_fedora_collections wflifc ON (wflifc.local_item_id = i.`primary_collection_id`) ' .
-    'LEFT OUTER JOIN wflocal_fedora_collection wffc ON (wffc.`id` = wflifc.fedora_collection_id) ' .
-    'WHERE b.`name` = "' . $batch_name . '"';
-
-  $result = mysqli_query($link, $query);
-  if (!$result) {
-    upitt_workflow_sql_error_die($link, $query);
-  }
-  $rows = array();
-  while ($row = mysqli_fetch_assoc($result)) {
-    $rows[$row['do_id']] = $row;
-  }
-  mysqli_close($link);
-  return $rows;
-}
-
-/**
- * Database query function to return the transactions related to a batch item.
- *
- * @param string $item_id
- *   The identifier field for a item.
- * @return array
- *   Array of item transaction records keyed on the transaction id - each is an
- * array of transaction field values.
- */
-function upitt_islandora_digital_workflow_migration_get_transaction_records($item_id) {
-  $link = upitt_workflow_get_databaselink('drlworkflow');
-
-  $query = 'SELECT t.`id`, t.`item_id`, t.`description`, ' .
-      ' au.`username`, au.`first_name`, au.`last_name`, au.`email`, t.`timestamp` ' .
-      'FROM `core_transaction` t ' .
-      'LEFT OUTER JOIN auth_user au ON (au.id = t.user_id) ' .
-      'WHERE t.`item_id` = "' . $item_id . '" ' .
-      'ORDER BY t.`timestamp`';
-
-  $result = mysqli_query($link, $query);
-  if (!$result) {
-    upitt_workflow_sql_error_die($link, $query);
-  }
-  $rows = array();
-  while ($row = mysqli_fetch_assoc($result)) {
-    $rows[$row['id']] = $row;
-  }
-  mysqli_close($link);
-  return $rows;
 }
