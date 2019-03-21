@@ -132,6 +132,9 @@ $idw_islandora_model_mapping = array(
 define('CST_TEMP_MESSAGE_FILE', '/tmp/upitt_islandora_digital_workflow_migration_message');
 define('CST_DELIVERY_ROOT', '/ingest/dlxs/repository/');
 
+// For permissions.
+define('UPITT_ISLANDORA_DIGITAL_WORKFLOW_MIGRATION', 'use upitt workflow migration');
+
 // This module relies on some database functions that are in the code for
 // upitt_workflow.module.
 module_load_include('module', 'upitt_workflow', 'upitt_workflow');
@@ -146,16 +149,28 @@ function upitt_islandora_digital_workflow_migration_menu() {
       'description' => 'Migrate records from legacy DRL django system to the Islandora Digital Workflow system.',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('upitt_islandora_digital_workflow_migration_show_possible'),
-      'access arguments' => array('administer site configuration'),
+      'access arguments' => array(UPITT_ISLANDORA_DIGITAL_WORKFLOW_MIGRATION),
     ),
     'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/%' => array(
       'page callback' => 'drupal_get_form',
       'page arguments' => array('upitt_islandora_digital_workflow_migration_migrate_batches', 4),
-      'access arguments' => array('administer site configuration'),
-    )
+      'access arguments' => array(UPITT_ISLANDORA_DIGITAL_WORKFLOW_MIGRATION),
+    ),
   );
-
   return $items;
+}
+
+
+/**
+ * Implements hook_permission().
+ */
+function upitt_islandora_digital_workflow_migration_permission() {
+  return array(
+    UPITT_ISLANDORA_DIGITAL_WORKFLOW_MIGRATION => array(
+      'title' => t('Use UPitt Islandora Digital Workflow Migration'),
+      'description' => t('Can use the UPitt Islandora Digital Workflow Migration utility.'),
+    ),
+  );
 }
 
 /**
