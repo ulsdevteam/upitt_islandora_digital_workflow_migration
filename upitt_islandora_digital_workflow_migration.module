@@ -3,16 +3,21 @@
 set_time_limit(0);
 
 global $drupal_uids;
+global $drupal_names;
 global $idw_islandora_model_mapping;
+global $tid_priority_mapping;
+// NOTE: All of these email names have been normalized to lowercase since
+// upitt_islandora_digital_workflow_migration_get_drupal_uid uses lowercase
+// to search.
 $drupal_uids = array(
   "abrenner@pitt.edu" =>53,
   "akg45@pitt.edu" =>481,
   "alexjtoner@pitt.edu" =>89110,
   "alt64@pitt.edu" =>64816,
-  "ASW76@pitt.edu" =>88956,
+  "asw76@pitt.edu" =>88956,
   "bdgregg@pitt.edu" =>38,
   "btr9@pitt.edu" =>89111,
-  "CHL291@pitt.edu" =>89112,
+  "chl291@pitt.edu" =>89112,
   "chs187@pitt.edu" =>686,
   "ctgraham@pitt.edu" =>135,
   "cwithers@pitt.edu" =>89113,
@@ -24,19 +29,19 @@ $drupal_uids = array(
   "grinnell@pitt.edu" =>89114,
   "heidicard@pitt.edu" =>482,
   "hek33@pitt.edu" =>740,
-  "HOK14@pitt.edu" =>64811,
+  "hok14@pitt.edu" =>64811,
   "jeanann@pitt.edu" =>89115,
   "jeffw@pitt.edu" =>134,
-  "JEK176@pitt.edu" =>64812,
+  "jek176@pitt.edu" =>64812,
   "jmp171@pitt.edu" =>125,
   "k.johnston@pitt.edu" =>128,
-  "KARIMAY@pitt.edu" =>88954,
+  "karimay@pitt.edu" =>88954,
   "kiarna@pitt.edu" =>483,
   "kmd106@pitt.edu" =>89116,
   "kmill@pitt.edu" =>89117,
   "kristin.britanik@pitt.edu" =>78366,
   "laurabrooks@pitt.edu" =>239,
-  "LINDAN@pitt.edu" =>4229,
+  "lindan@pitt.edu" =>4229,
   "lugar@pitt.edu" =>89118,
   "mam687@pitt.edu" =>89119,
   "miriam@pitt.edu" =>89120,
@@ -45,7 +50,7 @@ $drupal_uids = array(
   "mrbst20@pitt.edu" =>58,
   "nwatson@pitt.edu" =>89122,
   "rlh52@pitt.edu" =>131,
-  "STR51@pitt.edu" =>741,
+  "str51@pitt.edu" =>741,
   "tarka@pitt.edu" =>485,
   "tsd@pitt.edu" =>486,
   "tyt3@pitt.edu" =>89249,
@@ -56,6 +61,63 @@ $drupal_uids = array(
   "williamdaw@pitt.edu" =>89123,
   "zlb2@pitt.edu" =>250
 );
+// Similar to above, but this maps the legacy email to the drupal users name.
+$drupal_names = array(
+  "abrenner@pitt.edu" => "abrenner",
+  "akg45@pitt.edu" => "AKG45",
+  "alexjtoner@pitt.edu" => "AJT64",
+  "alt64@pitt.edu" => "ALT64",
+  "ASW76@pitt.edu" => "ASW76",
+  "bdgregg@pitt.edu" => "bdgregg",
+  "btr9@pitt.edu" => "BTR9",
+  "CHL291@pitt.edu" => "CHL291",
+  "chs187@pitt.edu" => "CHS187",
+  "ctgraham@pitt.edu" => "ctgraham",
+  "cwithers@pitt.edu" => "CWITHERS",
+  "delvon.anderson@pitt.edu" => "nylorac",
+  "des125@pitt.edu" => "des125",
+  "discovery@discoverygarden.ca" => "discoverygarden",
+  "edwardg@pitt.edu" => "edwardg",
+  "esoward@pitt.edu" => "esoward",
+  "grinnell@pitt.edu" => "GRINNELL",
+  "heidicard@pitt.edu" => "HRC5",
+  "hek33@pitt.edu" => "HEK33",
+  "HOK14@pitt.edu" => "HOK14",
+  "jeanann@pitt.edu" => "JEANANN",
+  "jeffw@pitt.edu" => "jeffw",
+  "JEK176@pitt.edu" => "JEK176",
+  "jmp171@pitt.edu" => "jmp171",
+  "k.johnston@pitt.edu" => "kep31",
+  "KARIMAY@pitt.edu" => "KARIMAY",
+  "kiarna@pitt.edu" => "KIARNA",
+  "kmd106@pitt.edu" => "KMD106",
+  "kmill@pitt.edu" => "KMILL",
+  "kristin.britanik@pitt.edu" => "KRB141",
+  "laurabrooks@pitt.edu" => "LAB149",
+  "LINDAN@pitt.edu" => "LINDAN",
+  "lugar@pitt.edu" => "LUGAR",
+  "mam687@pitt.edu" => "MAM687",
+  "miriam@pitt.edu" => "MIRIAM",
+  "mjj@pitt.edu" => "MJJ",
+  "mpmcgill@pitt.edu" => "MPMCGILL",
+  "mrbst20@pitt.edu" => "mrbst20",
+  "nwatson@pitt.edu" => "NWATSON",
+  "rlh52@pitt.edu" => "rlh52",
+  "STR51@pitt.edu" => "STR51",
+  "tarka@pitt.edu" => "TARKA",
+  "tsd@pitt.edu" => "TSD",
+  "tyt3@pitt.edu" => "TYT3",
+  "uls-systemsdevelopment@mail.pitt.edu" => "admin",
+  "uls-systemsdevelopment@pitt.edu" => "stackhealth_monitor_api",
+  "ulssdstu@pitt.edu" => "ULSSDSTU",
+  "wgillingham@pitt.edu" => "bgilling",
+  "williamdaw@pitt.edu" => "WCDST3",
+  "zlb2@pitt.edu" => "ZLB2",
+);
+
+$tid_priority_mapping = upitt_islandora_digital_workflow_migration_get_priority_tids();
+
+// These are used as a constant here to avoid database queries on this lookup.
 $idw_islandora_model_mapping = array(
   1 => 'manuscriptCModel',
   2 => 'sp_large_image_cmodel',
@@ -157,9 +219,14 @@ function upitt_islandora_digital_workflow_migration_show_possible(array $form, a
   $possible_batches = upitt_islandora_digital_workflow_migration_get_batches($include_filter, $exclude_filter);
   $total_items =0;
   $links = $l = array();
+  $migrated_batches = variable_get('upitt_islandora_digital_workflow_migration_migrated_batches', array());
   foreach ($possible_batches as $possible_batch) {
     $total_items += $possible_batch['items count'];
-    $l[] = l($possible_batch['name'], 'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/' . $possible_batch['name']) . ' <b>' . number_format($possible_batch['items count']) . ' items</b>';
+    $link_string = l($possible_batch['name'], 'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/' . $possible_batch['name']) . 
+        ' <b>' . number_format($possible_batch['items count']) . ' items</b>' . 
+        (!(array_search($possible_batch['name'], $migrated_batches) === FALSE) ? 
+            ' <i>(has been migrated)</i>' : '') ;
+    $l[] = $link_string;
   }
 
   $links[] = l('All', 'admin/islandora/upitt_islandora_digital_workflow_migration/migrate/all') . ' <b>' . number_format($total_items) . ' items</b><hr>';
@@ -283,30 +350,37 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
     $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
     $django_batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
     $added_this_batch = upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records);
-    $batch_id = $added_this_batch['batch_id'];
-    $batch_migrated_count += (is_array($added_this_batch) ? 1 : 0);
+
+    $batch_id = $added_this_batch->batch_id;
+    $batch_migrated_count += (is_object($added_this_batch) ? 1 : 0);
     $output .= theme('upitt_islandora_digital_workflow_record', array(
-      'title' => 'Batch [#' . $j . ']',
+      'title' => 'Django Batch [#' . $j . ']',
       'row' => $django_batch,
       'class' => 'indent-1 batch-div'));
+
+    $output .= theme('upitt_islandora_digital_workflow_record', array(
+      'title' => 'Batch [#' . $j . ']',
+      'row' => (array)$added_this_batch,
+      'class' => 'indent-1 batch-div idw')) . '<br class="clearfloat" />';
+
     $items = upitt_islandora_digital_workflow_migration_get_batch_item_records($batch_name);
     $items_output = array();
-    $tt = 0;
-    $i = 1;
+    $mig_tx_row = 0;
+    $item_row = 1;
     foreach ($items as $item) {
-      $added_this_batch_item = upitt_islandora_digital_workflow_migration_create_item($item, $added_this_batch, $django_batch);
-      $item_migrated_count += (is_array($added_this_batch_item) ? 1 : 0);
       $transactions = upitt_islandora_digital_workflow_migration_get_transaction_records($item['item_id']);
-      $t = $idw_t = 1;
-      $transactions_output = '<h3>Django Transactions</h3>';
-      $idw_transactions_output = '<hr class="clearfloat" /><h3>Islandora Digital Workflow Transactions</h3>';
+      $added_this_batch_item = upitt_islandora_digital_workflow_migration_create_item($item, $added_this_batch, $django_batch, $delete_existing_records);
+      $item_migrated_count += (is_object($added_this_batch_item) ? 1 : 0);
+      $tx_row = $idw_t = 1;
+      $transactions_output = '<div class="transactions"><h3>Django Transactions</h3>';
+      $idw_transactions_output = '<br class="clearfloat" /><h3>Islandora Digital Workflow Transactions</h3>';
       foreach ($transactions as $transaction) {
         $added_this_transaction = upitt_islandora_digital_workflow_migration_create_transaction($transaction, $added_this_batch_item);
         $transaction_migrated_count += (is_array($added_this_transaction) ? 1 : 0);
         $transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
-          'title' => 'Transaction [#' . $t . ']',
+          'title' => 'Transaction [#' . $tx_row . ']',
           'row' => $transaction,
-          'class' => 'indent-2' . (is_array($added_this_transaction) ? '' : ' skipped')));
+          'class' => 'indent-2' . (is_array($added_this_transaction) ? ' keep' : ' skipped')));
         if (is_array($added_this_transaction)) {
           $idw_transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
             'title' => 'Transaction [#' . $idw_t . ']',
@@ -316,16 +390,22 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
           $idw_t++;
         }
 
-        $t++;
+        $tx_row++;
       }
 
+      $idw_batch_item_output = theme('upitt_islandora_digital_workflow_record', array(
+        'title' => 'Item [#' . $item_row . '] "' . $item['do_id'] . '"',
+        'row' => (array)$added_this_batch_item,
+        'extra_content' => '',
+        'class' => 'indent-1 idw'));
       $output .= theme('upitt_islandora_digital_workflow_record', array(
-        'title' => 'Item [#' . $i . '] "' . $item['do_id'] . '"',
+        'title' => 'Django Item [#' . $item_row . '] "' . $item['do_id'] . '"',
         'row' => $item,
-        'extra_content' => $transactions_output . $idw_transactions_output,
-        'class' => 'indent-1'));
-      $i++;
-      $tt += $t;
+        'extra_content' => $idw_batch_item_output . '<br class="clearfloat" />' .
+          $transactions_output . $idw_transactions_output,
+        'class' => 'indent-1')) . '</div><br class="clearfloat" />';
+      $item_row++;
+      $mig_tx_row += $tx_row;
     }
     $j++;
   }
@@ -334,20 +414,117 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
     number_format($batch_migrated_count) . ' batches migrated<br>' .
     number_format($item_migrated_count) . ' items migrated<br>' .
     number_format($transaction_migrated_count) . ' of ' .
-    number_format($tt) . ' transactions migrated<br>' : '';
+    number_format($mig_tx_row) . ' transactions migrated<br>' : '';
+  $migrated_batches = variable_get('upitt_islandora_digital_workflow_migration_migrated_batches', array());
+  if (array_search($batch_name, $migrated_batches) === FALSE) {
+    $migrated_batches[] = $batch_name;
+    variable_set('upitt_islandora_digital_workflow_migration_migrated_batches', $migrated_batches);
+  }
   return $summary . $output;
 }
 
+/**
+ * This will return an Islandora model given a DRL item type id value.  This will
+ * default to `islandora:sp_large_image_cmodel` when no match is found.
+ *
+ * @global array $idw_islandora_model_mapping
+ *   The mapping to the Islandora model related to each of the types.
+ * @param integer $type_id
+ *   The DRL value that matches the mappings in core_item_type table.
+ * @return string
+ *   The islandora model name.
+ */
 function upitt_islandora_digital_workflow_migration_get_islandora_model_from_type_id($type_id) {
   global $idw_islandora_model_mapping;
   return 'islandora:' . (!(array_key_exists($type_id, $idw_islandora_model_mapping) === FALSE)) ?
       $idw_islandora_model_mapping[$type_id] : 'sp_large_image_cmodel';
 }
 
+
+/**
+ * This will return a taxonomy term tid DRL batch's priority value.  This will
+ * default to the $tid for "Low" priority batches.
+ *
+ * @global array $idw_islandora_model_mapping
+ *   The mapping to the Islandora model related to each of the types.
+ * @param integer $type_id
+ *   The DRL value that matches the mappings in core_item_type table.
+ * @return string
+ *   The islandora model name.
+ */
+function upitt_islandora_digital_workflow_migration_get_priority($priority_int) {
+  global $tid_priority_mapping;
+
+  if (($priority_int && $priority_int <> '')) {
+    return 'islandora:' . (!(array_key_exists(($priority_int + 2), $tid_priority_mapping) === FALSE)) ?
+      $tid_priority_mapping[$priority_int + 2]['tid'] : $tid_priority_mapping[3]['tid'];
+  }
+  else {
+    return $tid_priority_mapping[2]['tid'];
+  }
+}
+
+/**
+ * To populate the global $tid_priority_mapping value -- look up all
+ * taxonomy terms for the "workflow_batch_priority_vocab" vocabulary and
+ * return an array of the terms' tid value and term name.
+ *
+ * @return array
+ *   An associative array of taxonomy terms for various priority keys.
+ */
+function upitt_islandora_digital_workflow_migration_get_priority_tids() {
+  $vocab = taxonomy_vocabulary_machine_name_load('workflow_batch_priority_vocab');
+  module_load_include('inc', 'islandora_digital_workflow', 'includes/taxonomy_utilities');
+  $t = islandora_digital_workflow_get_all_terms_of_vocab($vocab);
+  $return = array(0 => 0);
+  $i = 5;
+  foreach ($t as $term) {
+    $return[$i] = array(
+      'name' => $term->name,
+      'tid' => $term->tid,
+    );
+
+    $i--;
+  }
+  return $return;
+}
+
+/**
+ * This will return the drupal users uid value that relates to a given email
+ * address that is common to both the DRL and the Islandora system.
+ *
+ * @global array $drupal_uids
+ *
+ * @param string $email
+ *   The email address that is used for lookup.
+ * @return integer
+ *   The drupal uid value related to the email address -- this may return 0
+ * which is considered "system".
+ */
 function upitt_islandora_digital_workflow_migration_get_drupal_uid($email) {
   global $drupal_uids;
-  return (!(array_key_exists($email, $drupal_uids) === FALSE)) ?
-      $drupal_uids[$email] : 0;
+  $lc_email_key = strtolower($email);
+  return (!(array_key_exists($lc_email_key, $drupal_uids) === FALSE)) ?
+      $drupal_uids[$lc_email_key] : 0;
+}
+
+/**
+ * This will return the drupal users name value that relates to a given email
+ * address that is common to both the DRL and the Islandora system.
+ *
+ * @global array $drupal_names
+ *
+ * @param string $email
+ *   The email address that is used for lookup.
+ * @return integer
+ *   The drupal uid value related to the email address -- this may return 0
+ * which is considered "system".
+ */
+function upitt_islandora_digital_workflow_migration_get_drupal_name($email) {
+  global $drupal_names;
+  $lc_email_key = strtolower($email);
+  return (!(array_key_exists($lc_email_key, $drupal_names) === FALSE)) ?
+      $drupal_names[$lc_email_key] : 0;
 }
 
 /**

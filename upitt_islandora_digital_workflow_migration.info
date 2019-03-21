@@ -6,4 +6,5 @@ core = 7.x
 configure = admin/islandora/upitt_islandora_digital_workflow_migration
 dependencies[] = islandora
 dependencies[] = upitt_workflow
+dependencies[] = islandora_digital_workflow
 

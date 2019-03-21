@@ -1,14 +1,16 @@
 .indent-1 {
-    display: block;
+    display: inline-block;
     margin-left: 2px;
     margin-bottom: 1.5em;
-    border: 2px solid #EDEDED;
-    border-right-width: 36px;
-    border-left-width: 30px;
-    padding: 8px;
+    border: 2px solid #888;
+    border-radius: 6px;
+    padding: 6px;
     background-color: #F8F8F8;
-    box-shadow: -2px -2px 8px #444;
+    box-shadow: 2px 2px 8px #444;
     font-size: 88% !important;
+    width: 44%;
+    float: left;
+    margin: 5px 1%;
 }
 
 .indent-1 h3, .indent-2 h3 {
@@ -32,7 +34,7 @@
     border-radius: 6px;
     padding: 4px 7px;
     background-color: white;
-    border: 1px solid #444;
+    border: 2px solid #444;
     box-shadow: 3px 3px 8px #222;
     font-size: 80% !important;
     clear: inline-end;
@@ -41,9 +43,12 @@
 }
 
 .batch-div {
-    background-color: #F2FFF3 !important;
+    background-color: #F9F9F9 !important;
     border-radius: 8px;
-    border: 2px solid #DDD;
+    border: 2px solid #BBB;
+    width: 44%;
+    float: left;
+    margin: 5px 1%;
 }
 
 .clearfloat {
@@ -52,12 +57,24 @@
 
 .skipped {
     border-color: #F44;
-    color: #999;
-    background-color: #fafafa;
+    color: #BBB;
+    background-color: #f1f1f1;
+}
+
+.keep {
+    background-color: #FDFDFD;
+}
+
+.transactions {
+    font-size: 90%;
+}
+
+.transactions h3 {
+    font-size: 90%;
 }
 
 .idw {
-    border-color: #22D;
+    border-color: #3C4;
     color: black;
     background-color: white;
 }
