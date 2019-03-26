@@ -360,6 +360,8 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
   else {
     $batch_names = array($batch_name);
   }
+  $drupal_db_link = upitt_workflow_get_databaselink('default');
+  $content_types_vocab = taxonomy_vocabulary_machine_name_load('workflow_content_type_vocab');
   $j = 1;
   foreach ($batch_names as $batch_name) {
     $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
@@ -423,6 +425,9 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
       $mig_tx_row += $tx_row;
     }
     $j++;
+    // Final step -- call the islandora_digital_workflow code needed to create
+    // a drupal workflow_batch node related to this batch record.
+    upitt_islandora_digital_workflow_migration_make_or_update_node($added_this_batch, $content_types_vocab, $drupal_db_link);
   }
 
   $summary = ($output) ?
@@ -605,5 +610,163 @@ function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array
   if ($output = upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $delete_existing_records)) {
     file_put_contents(CST_TEMP_MESSAGE_FILE, $output);
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
+  }
+}
+
+function upitt_islandora_digital_workflow_migration_make_or_update_node($created_batch_record_object, $content_types_vocab, $drupal_db_link) {
+  module_load_include('inc', 'islandora_digital_workflow', 'includes/taxonomy_utilities');
+  $node = (is_object($created_batch_record_object) && $created_batch_record_object->nid) ?
+    node_load($created_batch_record_object->nid) : NULL;
+  if (is_null($node)) {
+    $node = new stdClass();
+  }
+  $node->title = $created_batch_record_object->batch_name;
+  $node->type = "workflow_batch";
+  // Sets some defaults. Invokes hook_prepare() and hook_node_prepare().
+  node_object_prepare($node);
+  // Or e.g. 'en' if locale is enabled.
+  $node->language = LANGUAGE_NONE;
+  $node->uid = 0; // Node will have "admin" as the user, but the batch record
+                  // has "upitt_islandora_digital_workflow_migration".
+  // Status is 1 or 0; published or not.
+  $node->status = 1;
+  // Promote is 1 or 0; promoted to front page or not.
+  $node->promote = 0;
+  // Comment is 0, 1, 2; 0 = disabled, 1 = read only, or 2 = read/write.
+  $node->comment = 0;
+
+  // Set any specific CCK field values for the node object
+  $node->field_batch_name[$node->language][0]['value'] = $created_batch_record_object->batch_name;
+  $node->field_content_type[$node->language][] = array('tid' => $created_batch_record_object->islandora_model);
+
+  $stages_vocab = taxonomy_vocabulary_machine_name_load('workflow_stage_vocab');
+  $stage_new_tid = islandora_digital_workflow_get_tid_by_name('New', $stages_vocab);
+
+  $node_has_new_stage_already = FALSE;
+  $node_has_new_stage_already = (isset($node->field_stage) && (array_key_exists($node->language, $node->field_stage) &&
+      array_key_exists(0, $node->field_stage[$node->language]) &&
+      array_key_exists('tid', $node->field_stage[$node->language][0]) &&
+      $node->field_stage[$node->language][0]['tid'] == $stage_new_tid)) ? TRUE : FALSE;
+  if ($stage_new_tid && !$node_has_new_stage_already) {
+    $node->field_stage[$node->language][] = array('tid' => $stage_new_tid);
+  }
+  $content_types_vocab = taxonomy_vocabulary_machine_name_load('workflow_content_type_vocab');
+  // For the Content Types cck field, the batch_record value is storing the term value
+  $node->field_islandora_model[$node->language][0]['tid'] = islandora_digital_workflow_get_tid_by_name('islandora:' .
+      str_replace('islandora:', '', $created_batch_record_object->islandora_model), $content_types_vocab);
+
+  // For the batch_priorities_tid cck field, the batch_record value has tid value
+  $node->field_priority[$node->language][0]['tid'] = $created_batch_record_object->batch_priority_tid;
+
+  $node->field_pid_count[$node->language][0]['value'] = $created_batch_record_object->object_count;
+  $node->field_collections_mapping[$node->language][]['value'] = $created_batch_record_object->mapto_collections;
+//  if (variable_get('islandora_digital_workflow_use_isMemberOfSite', 0)) {
+//    foreach ($created_batch_record_object->sites_select as $site_pid) {
+//      $node->field_sites_mapping[$node->language][]['value'] = $site_pid;
+//    }
+//  }
+
+  $node->field_identifiers[$node->language][0]['value'] = '';
+
+  $node = node_submit($node); // Prepare node for saving
+  node_save($node);
+  $update_batch_arr = array(
+      'batch_id' => $created_batch_record_object->batch_id,
+      'nid' => $node->nid,
+  );
+
+  $query = 'UPDATE islandora_digital_workflow_batch ' .
+    'SET nid = ' . $node->nid . ' ' .
+    'WHERE batch_id = ' . $created_batch_record_object->batch_id;
+
+  $result = mysqli_query($drupal_db_link, $query);
+  if (!$result) {
+    upitt_workflow_sql_error_die($drupal_db_link, $query);
+  }
+  mysqli_close($drupal_db_link);
+}
+
+function upitt_islandora_digital_workflow_migration_get_django_json_add_datastream($islandora_object) {
+  module_load_include('inc', 'islandora_video' ,'includes/derivatives');
+  @list($ns, $identifier) = explode(":", $islandora_object->id);
+  $url = 'http://bigfoot.library.pitt.edu/django/workflow/item/' . $identifier . '/json/';
+  $json_string = file_get_contents($url);
+  if ($json_string) {
+    upitt_islandora_digital_workflow_migration_add_datastream($islandora_object, 'DJANGO_JSON', $json_string);
+  }
+  else {
+    drupal_set_message(t('There was an error trying to pull the JSON for item @identifier', array(
+      '@identifier' => $identifier)), 'warning');
+  }
+  return TRUE;
+}
+
+function upitt_islandora_digital_workflow_migration_add_datastream($object, $datastream_id, $file_contents) {
+  try {
+    $ingest = !isset($object[$datastream_id]);
+
+    if ($ingest) {
+      $ds = $object->constructDatastream($datastream_id, "M");
+      $ds->label = $datastream_id;
+    }
+    else {
+      $ds = $object[$datastream_id];
+    }
+    if ($ds->mimetype != 'text/plain') {
+      $ds->mimetype = 'text/plain';
+    }
+    $ds->setContentFromString($file_contents);
+    if ($ingest) {
+      $object->ingestDatastream($ds);
+    }
+    return array(
+      'success' => TRUE,
+      'messages' => array(
+        array(
+          'message' => t('Created @dsid derivative for OBJ (@pid).'),
+          'message_sub' => array(
+            '@dsid' => $datastream_id,
+            '@pid' => $object->id,
+          ),
+          'type' => 'dsm',
+        ),
+      ),
+    );
+  }
+  catch (exception $e) {
+    return array(
+      'success' => FALSE,
+      'messages' => array(
+        array(
+          'message' => t('Failed to add @dsid datastream for @pid. Error message: "@message" with trace: @stack'),
+          'message_sub' => array(
+            '@dsid' => $datastream_id,
+            '@pid' => $object->id,
+            '@message' => $e->getMessage(),
+            '@stack' => $e->getTraceAsString(),
+          ),
+          'type' => 'watchdog',
+          'severity' => WATCHDOG_ERROR,
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Implements hook_islandora_object_ingested().
+ *
+ * This will check the workflow database to insert a transaction record for it.
+ * This hook is not to be confused with the one for datastreams.
+ *
+ * @param AbstractObject $object
+ *   The object that was just ingested.
+ */
+function upitt_islandora_digital_workflow_migration_islandora_object_ingested(AbstractObject $object) {
+  if (variable_get('islandora_digital_workflow_handle_islandora_hook', 0) < 1) {
+    return;
+  }
+  if (is_object($object)) {
+    upitt_islandora_digital_workflow_migration_get_django_json_add_datastream($object);
   }
 }
