@@ -764,9 +764,21 @@ function upitt_islandora_digital_workflow_migration_add_datastream($object, $dat
  */
 function upitt_islandora_digital_workflow_migration_islandora_object_ingested(AbstractObject $object) {
   if (variable_get('islandora_digital_workflow_handle_islandora_hook', 0) < 1) {
+    // This makes sense to use the configuration for this handler that is from
+    // islandora_digital_workflow.
     return;
   }
   if (is_object($object)) {
-    upitt_islandora_digital_workflow_migration_get_django_json_add_datastream($object);
+    try {
+      upitt_islandora_digital_workflow_migration_get_django_json_add_datastream($object);
+    }
+    catch (Exception $e) {
+      $variables = array(
+        '@object_pid' => $object->id
+      );
+      watchdog('upitt_islandora_digital_workflow_migration',
+          'There was a problem trying to add the Django JSON datastream to the object @object_pid',
+          $variables, WATCHDOG_ERROR);
+    }
   }
 }
