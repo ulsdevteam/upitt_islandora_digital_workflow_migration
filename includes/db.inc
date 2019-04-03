@@ -345,11 +345,14 @@ function upitt_islandora_digital_workflow_migration_create_transaction($transact
  *   The batch array.
  * @param boolean $delete_existing_records
  *   Whether or not to delete any matching islandora_digital_workflow record
+ * @param array $tid_priority_mapping
+ *   The array of all taxonomy terms for the "workflow_batch_priority_vocab"
+ * vocabulary (term tid and term name).
  * @return mixed
  *   Either 0 when no batch is added, or the array that represents
  * the Islandora Digital Workflow batch record that was inserted.
  */
-function upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records = TRUE) {
+function upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records = TRUE, $tid_priority_mapping = array()) {
   /* QUESTIONS about mapping some django core_batch fields
    *   property_owner_id :: kind of like depositor, requires lookup table
    *     core_property_owner.
@@ -395,7 +398,7 @@ function upitt_islandora_digital_workflow_migration_create_batch($django_batch, 
     upitt_islandora_digital_workflow_migration_delete_batch($django_batch['name']);
   }
   $islandora_model = upitt_islandora_digital_workflow_migration_get_islandora_model_from_type_id($django_batch['type_id']);
-  $priority_taxonomy_tid = upitt_islandora_digital_workflow_migration_get_priority($django_batch['priority']);
+  $priority_taxonomy_tid = upitt_islandora_digital_workflow_migration_get_priority($django_batch['priority'], $tid_priority_mapping);
 
   $idw_batch_array = array(
     'batch_name' => $django_batch['name'],

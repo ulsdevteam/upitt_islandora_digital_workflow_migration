@@ -5,7 +5,6 @@ set_time_limit(0);
 global $drupal_uids;
 global $drupal_names;
 global $idw_islandora_model_mapping;
-global $tid_priority_mapping;
 // NOTE: All of these email names have been normalized to lowercase since
 // upitt_islandora_digital_workflow_migration_get_drupal_uid uses lowercase
 // to search.
@@ -114,8 +113,6 @@ $drupal_names = array(
   "williamdaw@pitt.edu" => "WCDST3",
   "zlb2@pitt.edu" => "ZLB2",
 );
-
-$tid_priority_mapping = upitt_islandora_digital_workflow_migration_get_priority_tids();
 
 // These are used as a constant here to avoid database queries on this lookup.
 $idw_islandora_model_mapping = array(
@@ -360,13 +357,15 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
   else {
     $batch_names = array($batch_name);
   }
+  $tid_priority_mapping = upitt_islandora_digital_workflow_migration_get_priority_tids();
+
   $drupal_db_link = upitt_workflow_get_databaselink('default');
   $content_types_vocab = taxonomy_vocabulary_machine_name_load('workflow_content_type_vocab');
   $j = 1;
   foreach ($batch_names as $batch_name) {
     $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
     $django_batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
-    $added_this_batch = upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records);
+    $added_this_batch = upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records, $tid_priority_mapping);
 
     $batch_id = $added_this_batch->batch_id;
     $batch_migrated_count += (is_object($added_this_batch) ? 1 : 0);
@@ -465,16 +464,14 @@ function upitt_islandora_digital_workflow_migration_get_islandora_model_from_typ
  * This will return a taxonomy term tid DRL batch's priority value.  This will
  * default to the $tid for "Low" priority batches.
  *
- * @global array $idw_islandora_model_mapping
- *   The mapping to the Islandora model related to each of the types.
  * @param integer $type_id
  *   The DRL value that matches the mappings in core_item_type table.
+ * @param array $tid_priority_mapping
+ *   The array of all taxonomy terms for the "workflow_batch_priority_vocab"
  * @return string
  *   The islandora model name.
  */
-function upitt_islandora_digital_workflow_migration_get_priority($priority_int) {
-  global $tid_priority_mapping;
-
+function upitt_islandora_digital_workflow_migration_get_priority($priority_int, $tid_priority_mapping = array()) {
   if (($priority_int && $priority_int <> '')) {
     return 'islandora:' . (!(array_key_exists(($priority_int + 2), $tid_priority_mapping) === FALSE)) ?
       $tid_priority_mapping[$priority_int + 2]['tid'] : $tid_priority_mapping[3]['tid'];
@@ -485,7 +482,7 @@ function upitt_islandora_digital_workflow_migration_get_priority($priority_int) 
 }
 
 /**
- * To populate the global $tid_priority_mapping value -- look up all
+ * To populate the $tid_priority_mapping value -- look up all
  * taxonomy terms for the "workflow_batch_priority_vocab" vocabulary and
  * return an array of the terms' tid value and term name.
  *
