@@ -116,17 +116,20 @@ $drupal_names = array(
 
 // These are used as a constant here to avoid database queries on this lookup.
 $idw_islandora_model_mapping = array(
-  1 => 'manuscriptCModel',
-  2 => 'sp_large_image_cmodel',
-  3 => 'bookCModel',            // text - cataloged
-  4 => 'bookCModel',            // text - uncataloged
-  5 => 'sp_large_image_cmodel', // map
-  6 => 'sp_pdf',
-  7 => 'sp_large_image_cmodel', // georeferenced map
-  8 => 'newspaperIssueCModel',  // newspaper - cataloged
+  1 => 'islandora:manuscriptCModel',
+  2 => 'islandora:sp_large_image_cmodel',
+  3 => 'islandora:bookCModel',            // text - cataloged
+  4 => 'islandora:bookCModel',            // text - uncataloged
+  5 => 'islandora:sp_large_image_cmodel', // map
+  6 => 'islandora:sp_pdf',
+  7 => 'islandora:sp_large_image_cmodel', // georeferenced map
+  8 => 'islandora:newspaperIssueCModel',  // newspaper - cataloged
 );
 
 define('CST_TEMP_MESSAGE_FILE', '/tmp/upitt_islandora_digital_workflow_migration_message');
+define('CST_TEMP_SUMMARY_FILE', '/tmp/upitt_islandora_digital_workflow_migration_summary');
+define('CST_TEMP_BATCH_SUMMARY_FILE', '/tmp/upitt_islandora_digital_workflow_migration_batch_summary');
+define('CST_TEMP_BATCH_ITEM_SUMMARY_FILE', '/tmp/upitt_islandora_digital_workflow_migration_batch_item_summary');
 define('CST_DELIVERY_ROOT', '/ingest/dlxs/repository/');
 
 // For permissions.
@@ -175,14 +178,14 @@ function upitt_islandora_digital_workflow_migration_permission() {
  */
 function upitt_islandora_digital_workflow_migration_theme() {
   return array(
-    'upitt_islandora_digital_workflow_record' => array(
+    'upitt_islandora_digital_workflow_migration_record' => array(
       'variables' => array(
         'row' => array(),
         'title' => '',
         'extra_content' => '',
         'class' => '',
       ),
-      'template' => 'theme/upitt-islandora-digital-workflow-record'
+      'template' => 'theme/upitt-islandora-digital-workflow-migration-record'
     ),
   );
 }
@@ -215,9 +218,10 @@ function upitt_islandora_digital_workflow_migration_preprocess_page(&$vars) {
  */
 function upitt_islandora_digital_workflow_migration_show_possible(array $form, array &$form_state) {
   module_load_include('inc', 'upitt_islandora_digital_workflow_migration', 'includes/db');
+  $file_contents = '';
   if (file_exists(CST_TEMP_MESSAGE_FILE)) {
     $file_contents = file_get_contents(CST_TEMP_MESSAGE_FILE);
-    drupal_set_message($file_contents);
+//    drupal_set_message($file_contents);
     @unlink(CST_TEMP_MESSAGE_FILE);
   }
 
@@ -250,7 +254,8 @@ function upitt_islandora_digital_workflow_migration_show_possible(array $form, a
       '#title' => 'Include Filter',
       '#description' => t('When set, all results will match this filter in their batch.name value will be displayed.  <b>NOTE:</b> Using a "*" character would represent a wildcard match at that location which must be either at the beginning and/or end of filter value.'),
       '#default_value' => $include_filter,
-      '#maxlength' => 50,        
+      '#maxlength' => 50,
+      '#prefix' => $file_contents,
     ),
     'exclude_filter' => array(
       '#type' => 'textfield',
@@ -323,9 +328,12 @@ function upitt_islandora_digital_workflow_migration_show_possible_submit(array $
     $_SESSION['delete_existing_records'] = $delete_existing_records;
     $migrate_batches = upitt_islandora_digital_workflow_migration_get_batches($include_filter, $exclude_filter);
     $output = '';
+    file_put_contents(CST_TEMP_SUMMARY_FILE, '');
     foreach ($migrate_batches as $migrate_batch) {
-      $output .= upitt_islandora_digital_workflow_migration_migrate_batch($migrate_batch['name'], $delete_existing_records);
+      $s = upitt_islandora_digital_workflow_migration_migrate_batch($migrate_batch['name'], $delete_existing_records);
+      file_put_contents(CST_TEMP_SUMMARY_FILE, $s, FILE_APPEND);
     }
+    $output = @file_get_contents(CST_TEMP_SUMMARY_FILE);
     file_put_contents(CST_TEMP_MESSAGE_FILE, $output);
     drupal_goto('/admin/islandora/upitt_islandora_digital_workflow_migration');
   }
@@ -347,8 +355,11 @@ function upitt_islandora_digital_workflow_migration_show_possible_submit(array $
  *   Whether or not the batch was able to be migrated.
  */
 function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $delete_existing_records = TRUE) {
+  // Clear the temp file for the batch.
+  file_put_contents(CST_TEMP_BATCH_SUMMARY_FILE, '');
+  file_put_contents(CST_TEMP_BATCH_ITEM_SUMMARY_FILE, '');
+
   module_load_include('inc', 'upitt_islandora_digital_workflow_migration', 'includes/db');
-  $output = '';
   $batch_migrated_count = $item_migrated_count = $transaction_migrated_count = 0;
   if ($batch_name == 'all') {
     $batch_names = upitt_islandora_digital_workflow_migration_get_batches();
@@ -362,19 +373,20 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
   $drupal_db_link = upitt_workflow_get_databaselink('default');
   $content_types_vocab = taxonomy_vocabulary_machine_name_load('workflow_content_type_vocab');
   $j = 1;
+  $output = '';
   foreach ($batch_names as $batch_name) {
-    $output .= '<h3>Migrating batch "' . $batch_name . '"</h3>';
+    $s = '<h3>Migrating batch "' . $batch_name . '"</h3>';
     $django_batch = upitt_islandora_digital_workflow_migration_get_batch($batch_name);
     $added_this_batch = upitt_islandora_digital_workflow_migration_create_batch($django_batch, $delete_existing_records, $tid_priority_mapping);
 
     $batch_id = $added_this_batch->batch_id;
     $batch_migrated_count += (is_object($added_this_batch) ? 1 : 0);
-    $output .= theme('upitt_islandora_digital_workflow_record', array(
+    $s .= theme('upitt_islandora_digital_workflow_migration_record', array(
       'title' => 'Django Batch [#' . $j . ']',
       'row' => $django_batch,
       'class' => 'indent-1 batch-div'));
 
-    $output .= theme('upitt_islandora_digital_workflow_record', array(
+    $s .= theme('upitt_islandora_digital_workflow_migration_record', array(
       'title' => 'Batch [#' . $j . ']',
       'row' => (array)$added_this_batch,
       'class' => 'indent-1 batch-div idw')) . '<br class="clearfloat" />';
@@ -393,12 +405,12 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
       foreach ($transactions as $transaction) {
         $added_this_transaction = upitt_islandora_digital_workflow_migration_create_transaction($transaction, $added_this_batch_item);
         $transaction_migrated_count += (is_array($added_this_transaction) ? 1 : 0);
-        $transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
+        $transactions_output .= theme('upitt_islandora_digital_workflow_migration_record', array(
           'title' => 'Transaction [#' . $tx_row . ']',
           'row' => $transaction,
           'class' => 'indent-2' . (is_array($added_this_transaction) ? ' keep' : ' skipped')));
         if (is_array($added_this_transaction)) {
-          $idw_transactions_output .= theme('upitt_islandora_digital_workflow_record', array(
+          $idw_transactions_output .= theme('upitt_islandora_digital_workflow_migration_record', array(
             'title' => 'Transaction [#' . $idw_t . ']',
             'row' => $added_this_transaction,
             'class' => 'indent-2 idw'
@@ -409,12 +421,12 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
         $tx_row++;
       }
 
-      $idw_batch_item_output = theme('upitt_islandora_digital_workflow_record', array(
+      $idw_batch_item_output = theme('upitt_islandora_digital_workflow_migration_record', array(
         'title' => 'Item [#' . $item_row . '] "' . $item['do_id'] . '"',
         'row' => (array)$added_this_batch_item,
         'extra_content' => '',
         'class' => 'indent-1 idw'));
-      $output .= theme('upitt_islandora_digital_workflow_record', array(
+      $item_s = theme('upitt_islandora_digital_workflow_migration_record', array(
         'title' => 'Django Item [#' . $item_row . '] "' . $item['do_id'] . '"',
         'row' => $item,
         'extra_content' => $idw_batch_item_output . '<br class="clearfloat" />' .
@@ -422,24 +434,39 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
         'class' => 'indent-1')) . '</div><br class="clearfloat" />';
       $item_row++;
       $mig_tx_row += $tx_row;
+      file_put_contents(CST_TEMP_BATCH_ITEM_SUMMARY_FILE, $item_s, FILE_APPEND);
     }
     $j++;
+    // Using a drupal theme and concatenating a larger and larger string causes the
+    // code to run out of memory.
+    $s .= file_get_contents(CST_TEMP_BATCH_ITEM_SUMMARY_FILE);
+    file_put_contents(CST_TEMP_BATCH_SUMMARY_FILE, $s, FILE_APPEND);
+
     // Final step -- call the islandora_digital_workflow code needed to create
     // a drupal workflow_batch node related to this batch record.
     upitt_islandora_digital_workflow_migration_make_or_update_node($added_this_batch, $content_types_vocab, $drupal_db_link);
   }
+  // Load the entire output for the batch into the $output variable.
+  $output = @file_get_contents(CST_TEMP_BATCH_SUMMARY_FILE);
 
-  $summary = ($output) ?
+  $summary = '<div class="migration-details">
+    <fieldset id="migrated-items-frame">
+      <legend><span class="fieldset-legend"><a class="fieldset-title" href="#">
+        <span class="fieldset-legend-prefix element-invisible">Hide</span> Batch record migration details...</a>
+      </legend>' .
     number_format($batch_migrated_count) . ' batches migrated<br>' .
     number_format($item_migrated_count) . ' items migrated<br>' .
     number_format($transaction_migrated_count) . ' of ' .
-    number_format($mig_tx_row) . ' transactions migrated<br>' : '';
+    number_format($mig_tx_row) . ' transactions migrated<br>' .
+    '  <div class="max-height-500 fieldset-wrapper">' . $output . '</div>' .
+    '  </fieldset>' .
+    '</div>';
   $migrated_batches = variable_get('upitt_islandora_digital_workflow_migration_migrated_batches', array());
   if (array_search($batch_name, $migrated_batches) === FALSE) {
     $migrated_batches[] = $batch_name;
     variable_set('upitt_islandora_digital_workflow_migration_migrated_batches', $migrated_batches);
   }
-  return $summary . $output;
+  return $summary;
 }
 
 /**
@@ -450,13 +477,19 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
  *   The mapping to the Islandora model related to each of the types.
  * @param integer $type_id
  *   The DRL value that matches the mappings in core_item_type table.
+ * @param string $genre
+ *   The DRL value for the batch `genre` field -- may set the model to islandora:
+ * newspaperIssueCModel if == 'newspaper'
  * @return string
  *   The islandora model name.
  */
-function upitt_islandora_digital_workflow_migration_get_islandora_model_from_type_id($type_id) {
+function upitt_islandora_digital_workflow_migration_get_islandora_model_from_type_id($type_id, $genre = '') {
   global $idw_islandora_model_mapping;
+  if ($genre == 'newspaper') {
+    return 'islandora:newspaperIssueCModel';
+  }
   return 'islandora:' . (!(array_key_exists($type_id, $idw_islandora_model_mapping) === FALSE)) ?
-      $idw_islandora_model_mapping[$type_id] : 'sp_large_image_cmodel';
+      $idw_islandora_model_mapping[$type_id] : 'islandora:sp_large_image_cmodel';
 }
 
 
@@ -560,6 +593,8 @@ function upitt_islandora_digital_workflow_migration_get_drupal_name($email) {
  *   A Drupal form definition.
  */
 function upitt_islandora_digital_workflow_migration_migrate_batches(array $form, array &$form_state, $batch_name = '') {
+  drupal_add_js('misc/collapse.js');
+  drupal_add_library('system', 'drupal.collapse');
   $form = array(
     'batchname' => array(
       '#type' => 'item',
@@ -597,6 +632,8 @@ function upitt_islandora_digital_workflow_migration_migrate_batches(array $form,
  *   The Drupal form state.
  */
 function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array $form, array &$form_state) {
+  drupal_add_js('misc/collapse.js');
+  drupal_add_library('system', 'drupal.collapse');
   $batch_name = $form['batch_name']['#value'];
   // if the user cancels, send them back to the main page.
   if ($form_state['triggering_element']['#value'] == t('Cancel')) {
