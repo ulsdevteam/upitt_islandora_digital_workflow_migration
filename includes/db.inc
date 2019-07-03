@@ -302,6 +302,11 @@ function upitt_islandora_digital_workflow_migration_delete_batch($batch_name) {
   if (is_array($idw_batch)) {
     $batch_record_object = array_pop($idw_batch);
     if (is_object($batch_record_object)) {
+      // Delete the drupal node related to the batch.
+      $nid = $batch_record_object->nid;
+      if ($nid) {
+        node_delete($nid);
+      }
       db_delete('islandora_digital_workflow_batch')
         ->condition('batch_id', $batch_record_object->batch_id)
         ->execute();
