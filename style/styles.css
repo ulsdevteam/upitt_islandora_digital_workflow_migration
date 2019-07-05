@@ -65,8 +65,13 @@
     padding-left: 12px;
 }
 
-.max-height-500 h3 {
+.migration-details h3 {
     margin: 2px 2px 4px 2px;
+    font-size: 1.4em;
+}
+
+.max-height-500 h3 {
+    font-size: 1.2em;
 }
 
 .migration-details {
@@ -75,6 +80,7 @@
     border-radius: 10px;
     padding: 10px;
 }
+
 
 .skipped {
     border-color: #F44;

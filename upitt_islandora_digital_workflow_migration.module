@@ -450,16 +450,11 @@ function upitt_islandora_digital_workflow_migration_migrate_batch($batch_name, $
   $output = @file_get_contents(CST_TEMP_BATCH_SUMMARY_FILE);
 
   $summary = '<div class="migration-details">
-    <fieldset id="migrated-items-frame">
-      <legend><span class="fieldset-legend"><a class="fieldset-title" href="#">
-        <span class="fieldset-legend-prefix element-invisible">Hide</span> Batch record migration details...</a>
-      </legend>' .
-    number_format($batch_migrated_count) . ' batches migrated<br>' .
-    number_format($item_migrated_count) . ' items migrated<br>' .
-    number_format($transaction_migrated_count) . ' of ' .
-    number_format($mig_tx_row) . ' transactions migrated<br>' .
+    <h3>Batch record migration details...</h3>' .
+    '<ul><li>' . number_format($batch_migrated_count) . ' batch' . ($batch_migrated_count == 1 ? '' : 'es') . ' migrated.  Includes:</li>' .
+    '<li> &rsaquo; ' . number_format($item_migrated_count) . ' item' . ($item_migrated_count == 1 ? '' : 's') . '</li>' .
+    '<li> &rsaquo; ' . number_format($transaction_migrated_count) . ' of ' . number_format($mig_tx_row) . ' transaction' . ($mig_tx_row == 1 ? '' : 's') . '</li></ul>' .
     '  <div class="max-height-500 fieldset-wrapper">' . $output . '</div>' .
-    '  </fieldset>' .
     '</div>';
   $migrated_batches = variable_get('upitt_islandora_digital_workflow_migration_migrated_batches', array());
   if (array_search($batch_name, $migrated_batches) === FALSE) {
@@ -593,8 +588,6 @@ function upitt_islandora_digital_workflow_migration_get_drupal_name($email) {
  *   A Drupal form definition.
  */
 function upitt_islandora_digital_workflow_migration_migrate_batches(array $form, array &$form_state, $batch_name = '') {
-  drupal_add_js('misc/collapse.js');
-  drupal_add_library('system', 'drupal.collapse');
   $form = array(
     'batchname' => array(
       '#type' => 'item',
@@ -632,8 +625,6 @@ function upitt_islandora_digital_workflow_migration_migrate_batches(array $form,
  *   The Drupal form state.
  */
 function upitt_islandora_digital_workflow_migration_migrate_batches_submit(array $form, array &$form_state) {
-  drupal_add_js('misc/collapse.js');
-  drupal_add_library('system', 'drupal.collapse');
   $batch_name = $form['batch_name']['#value'];
   // if the user cancels, send them back to the main page.
   if ($form_state['triggering_element']['#value'] == t('Cancel')) {
