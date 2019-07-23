@@ -666,12 +666,22 @@ function upitt_islandora_digital_workflow_migration_make_or_update_node($created
 
   $stages_vocab = taxonomy_vocabulary_machine_name_load('workflow_stage_vocab');
   $stage_new_tid = islandora_digital_workflow_get_tid_by_name('New', $stages_vocab);
+  $stage_migrated_batch_tid = islandora_digital_workflow_get_tid_by_name('Migrated batch', $stages_vocab);
 
   $node_has_new_stage_already = FALSE;
   $node_has_new_stage_already = (isset($node->field_stage) && (array_key_exists($node->language, $node->field_stage) &&
       array_key_exists(0, $node->field_stage[$node->language]) &&
       array_key_exists('tid', $node->field_stage[$node->language][0]) &&
       $node->field_stage[$node->language][0]['tid'] == $stage_new_tid)) ? TRUE : FALSE;
+  $node_has_migrated_batch_stage_already = FALSE;
+  $node_has_migrated_batch_stage_already = (isset($node->field_stage) && (array_key_exists($node->language, $node->field_stage) &&
+      array_key_exists(0, $node->field_stage[$node->language]) &&
+      array_key_exists('tid', $node->field_stage[$node->language][0]) &&
+      $node->field_stage[$node->language][0]['tid'] == $stage_migrated_batch_tid)) ? TRUE : FALSE;
+
+  if ($stage_migrated_batch_tid && !$node_has_migrated_batch_stage_already) {
+    $node->field_stage[$node->language][] = array('tid' => $stage_migrated_batch_tid);
+  }
   if ($stage_new_tid && !$node_has_new_stage_already) {
     $node->field_stage[$node->language][] = array('tid' => $stage_new_tid);
   }
