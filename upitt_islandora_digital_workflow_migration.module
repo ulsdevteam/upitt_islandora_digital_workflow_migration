@@ -725,15 +725,25 @@ function upitt_islandora_digital_workflow_migration_get_django_json_add_datastre
   module_load_include('inc', 'islandora_video' ,'includes/derivatives');
   @list($ns, $identifier) = explode(":", $islandora_object->id);
   $url = 'http://bigfoot.library.pitt.edu/django/workflow/item/' . $identifier . '/json/';
-  $json_string = file_get_contents($url);
-  if ($json_string) {
-    upitt_islandora_digital_workflow_migration_add_datastream($islandora_object, 'DJANGO_JSON', $json_string);
+  try {
+    $json_string = file_get_contents($url);
+    if ($json_string) {
+      upitt_islandora_digital_workflow_migration_add_datastream($islandora_object, 'DJANGO_JSON', $json_string);
+    }
+    else {
+      drupal_set_message(t('There was an error trying to pull the JSON for item @identifier', array(
+        '@identifier' => $identifier)), 'warning');
+    }
+    return TRUE;
   }
-  else {
-    drupal_set_message(t('There was an error trying to pull the JSON for item @identifier', array(
-      '@identifier' => $identifier)), 'warning');
+  catch (exception $e) {
+    drupal_set_message(t('There was an error trying to pull the JSON for item @identifier.  Error message: "@message" with trace: @stack', array(
+      '@identifier' => $identifier,
+      '@message' => $e->getMessage(),
+      '@stack' => $e->getTraceAsString(),
+    )), 'warning');
+    return TRUE;
   }
-  return TRUE;
 }
 
 function upitt_islandora_digital_workflow_migration_add_datastream($object, $datastream_id, $file_contents) {
