@@ -79,7 +79,8 @@ function upitt_islandora_digital_workflow_migration_get_batch($batch_name) {
     'FROM `core_batch` b ' .
     'LEFT OUTER JOIN `wflocal_local_batch` wfllb ON (wfllb.batch_ptr_id = b.id) ' .
     'LEFT OUTER JOIN `core_collection` cc ON (cc.id = b.collection_id) ' .
-    'LEFT OUTER JOIN `wflocal_local_item_fedora_collections` wflifc ON (wflifc.local_item_id = b.`collection_id`) ' .
+    'LEFT OUTER JOIN `core_batch_item` cbi ON (cbi.batch_id = b.id) ' .
+    'LEFT OUTER JOIN `wflocal_local_item_fedora_collections` wflifc ON (wflifc.local_item_id = cbi.item_id) ' .
     'LEFT OUTER JOIN `wflocal_fedora_collection` wffc ON (wffc.`id` = wflifc.fedora_collection_id) ' .
     'WHERE b.`name` = "' . $batch_name . '"';
   $result = mysqli_query($link, $query);
