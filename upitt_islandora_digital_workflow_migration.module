@@ -815,6 +815,7 @@ function upitt_islandora_digital_workflow_migration_islandora_object_ingested(Ab
   }
   if (is_object($object)) {
     try {
+return;
       upitt_islandora_digital_workflow_migration_get_django_json_add_datastream($object);
     }
     catch (Exception $e) {
